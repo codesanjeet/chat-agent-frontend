@@ -204,31 +204,27 @@ export default function ProfilePage() {
     setLogoPreview(null);
   };
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!canSubmit) return;
-      setError(null);
-      setLoading("submit");
-      try {
-        const user = await completeProfile({
-          business_name: businessName.trim(),
-          business_category: category,
-          slug: slug.trim(),
-        });
-        // profile_completed is now true; is_configured is a later step, so
-        // this almost always lands on /onboarding right after saving. If
-        // the chosen slug was already taken, the backend falls back to a
-        // suggested variant -- user.slug on the response reflects whatever
-        // actually got saved, in case you want to surface that later.
-        router.replace(user.is_configured ? "/dashboard" : "/onboarding");
-      } catch (err: any) {
-        setError(err?.message || "Couldn't save your profile. Try again.");
-        setLoading(null);
-      }
-    },
-    [canSubmit, businessName, category, logoUrl, slug, router]
-  );
+const handleSubmit = useCallback(
+  async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setError(null);
+    setLoading("submit");
+    try {
+      const user = await completeProfile({
+        business_name: businessName.trim(),
+        business_category: category,
+        slug: slug.trim(),
+      });
+      router.replace("/dashboard");
+    } catch (err: any) {
+      setError(err?.message || "Couldn't save your profile. Try again.");
+    } finally {
+      setLoading(null);
+    }
+  },
+  [canSubmit, businessName, category, logoUrl, slug, router]
+);
 
   if (guard === "checking") {
     return (

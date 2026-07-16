@@ -219,7 +219,23 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
 
-  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+const GOOGLE_BTN_NATURAL_HEIGHT = 40; 
+const googleBtnWrapperRef = useRef<HTMLDivElement>(null);
+const [googleBtnScale, setGoogleBtnScale] = useState(1);
+
+useEffect(() => {
+  const measure = () => {
+    if (googleBtnWrapperRef.current) {
+      setGoogleBtnScale(googleBtnWrapperRef.current.offsetWidth / 300);
+    }
+  };
+  measure();
+  window.addEventListener("resize", measure);
+  return () => window.removeEventListener("resize", measure);
+}, []);
+
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -422,43 +438,29 @@ function LoginContent() {
                 <p className="mt-2 text-sm text-[#6B6F76]">
                   We'll email you a 6-digit code. No password to remember.
                 </p>
-
-                <div className="mt-6 sm:mt-8 relative">
-                  {/* Decorative button -- purely visual, sits underneath the
-                      real (invisible) Google button below. Not clickable in
-                      practice since the overlay above it intercepts the
-                      click, but kept non-interactive-looking on purpose. */}
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    disabled={loading !== null}
-                    className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-[#E5E5E0] bg-white py-2.5 text-sm font-medium hover:bg-[#F5F5F3] transition-colors disabled:opacity-50"
-                  >
-                    {loading === "google" ? (
-                      <FiLoader className="animate-spin" size={16} />
-                    ) : (
-                      <FcGoogle size={17} />
-                    )}
-                    Continue with Google
-                  </button>
-
-                  {/* Real Google button, invisible, positioned exactly on
-                      top so the actual click (a trusted user gesture) lands
-                      on Google's real button -- required for the popup flow
-                      to fire at all. */}
-                  <div
-                    className={`absolute inset-0 opacity-0 overflow-hidden rounded-xl [&>div]:h-full [&>div]:w-full [&_iframe]:h-full [&_iframe]:w-full ${
-                      loading !== null ? "pointer-events-none" : ""
-                    }`}
-                  >
-                    <GoogleLogin
-                      onSuccess={handleGoogleCredential}
-                      onError={() => setError("Google sign-in failed. Try again.")}
-                      width="100%"
-                    />
-                  </div>
-                </div>
+<div
+  className="mt-6 sm:mt-8 w-full overflow-hidden rounded-xl"
+  ref={googleBtnWrapperRef}
+  style={{ height: GOOGLE_BTN_NATURAL_HEIGHT * googleBtnScale }}
+>
+  <div
+    style={{
+      width: 300,
+      transform: `scale(${googleBtnScale})`,
+      transformOrigin: "top left",
+    }}
+  >
+    <GoogleLogin
+      onSuccess={handleGoogleCredential}
+      onError={() => setError("Google sign-in failed. Try again.")}
+      theme="outline"
+      size="large"
+      text="continue_with"
+      shape="rectangular"
+      width="300"
+    />
+  </div>
+</div>
 
                 <div className="my-5 sm:my-6 flex items-center gap-3">
                   <div className="h-px flex-1 bg-[#E5E5E0]" />

@@ -206,7 +206,7 @@ export default function Settings() {
 /* ------------------------------------------------------------------------
  * Share QR: public chat link as a scannable/downloadable QR code
  * --------------------------------------------------------------------- */
-const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTED_BASE_URL;
+const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL;
 function ShareQrSection({ data }: { data: SettingsData }) {
   const qrRef = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState<Feedback | null>(null);
@@ -216,7 +216,7 @@ function ShareQrSection({ data }: { data: SettingsData }) {
       <SectionCard title="Share your chatbot" icon={<HiOutlineQrCode size={16} />}>
         <InlineMessage
           type="error"
-          text="Missing NEXT_PUBLIC_FRONTED_BASE_URL environment variable."
+          text="Missing NEXT_PUBLIC_FRONTEND_BASE_URL environment variable."
         />
       </SectionCard>
     );

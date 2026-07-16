@@ -218,7 +218,7 @@ function UsageCard({ usage }: { usage: UsageInfo | null }) {
 
 // --- Share-QR card (same widget as Settings.tsx's ShareQrSection) ----------
 
-const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTED_BASE_URL;
+const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL;
 
 type Feedback = { type: "success" | "error"; text: string };
 
@@ -241,7 +241,7 @@ function ShareQrCard({ slug }: { slug: string | null }) {
   if (!FRONTEND_BASE_URL) {
     return (
       <CardShell title="Share your chatbot" icon={<HiOutlineQrCode size={16} />}>
-        <InlineMessage type="error" text="Missing NEXT_PUBLIC_FRONTED_BASE_URL environment variable." />
+        <InlineMessage type="error" text="Missing NEXT_PUBLIC_FRONTEND_BASE_URL environment variable." />
       </CardShell>
     );
   }

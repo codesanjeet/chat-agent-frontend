@@ -1,10 +1,15 @@
 import { ChatWidget } from "@/components/chat/Chatshells";
 
-export default function TenantChatPage({ params }: { params: { tenantId: string } }) {
+export default async function TenantChatPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+
   return (
     <ChatWidget
-      // tenantId={params.tenantId}
-      tenantId="11a06f0e-027e-44ab-85c5-b0536de9bdbc"
+      slug={slug}
       accentColor="#2B4EFF"
       businessName="Chat"
       welcomeMessage="Hi! Ask me anything about us."

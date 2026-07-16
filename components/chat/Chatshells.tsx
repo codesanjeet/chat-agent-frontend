@@ -12,7 +12,7 @@ import Gallery from "./Gallery";
  * ------------------------------------------------------------------- */
 
 type PanelView = "chat" | "gallery";
-
+type ExternalChatProps = Omit<ChatThreadProps, "onOpenGallery">;
 function usePanelState() {
   const [view, setView] = useState<PanelView>("chat");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
@@ -47,7 +47,7 @@ function usePanelState() {
  * and its prop type too, so the name matches what it actually contains.
  * ------------------------------------------------------------------- */
 
-export function ChatWidget(props: ChatThreadProps) {
+export function ChatWidget(props: ExternalChatProps) {
   const [open, setOpen] = useState(false);
   const accentColor = props.accentColor ?? "#2B4EFF";
   const panel = usePanelState();
@@ -134,7 +134,7 @@ export function ChatWidget(props: ChatThreadProps) {
  * inside the same fixed container.
  * ------------------------------------------------------------------- */
 
-export function FullPageChat(props: ChatThreadProps) {
+export function FullPageChat(props: ExternalChatProps) {
   const accentColor = props.accentColor ?? "#2B4EFF";
   const panel = usePanelState();
 
