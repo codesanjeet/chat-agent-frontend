@@ -37,7 +37,7 @@ interface LeadForm {
   trigger_intent: string | null;
   is_default: boolean;
   requires_payment: boolean;
-  schema: { fields: LeadFormField[] };
+  form_schema: { fields: LeadFormField[] };
   created_at: string;
   updated_at: string;
 }
@@ -256,7 +256,7 @@ function FormsTab({ forms, setForms }: { forms: LeadForm[]; setForms: (f: LeadFo
               </div>
               <p className="mt-0.5 text-xs text-[#6B6F76]">
                 {form.trigger_intent ? `Triggers on: ${form.trigger_intent}` : "No trigger hint set"} ·{" "}
-                {form.schema.fields.length} field{form.schema.fields.length === 1 ? "" : "s"}
+                {form.form_schema.fields.length} field{form.form_schema.fields.length === 1 ? "" : "s"}
               </p>
             </div>
 
@@ -301,7 +301,7 @@ function FormEditor({
   const [isDefault, setIsDefault] = useState(initial?.is_default || false);
   const [requiresPayment, setRequiresPayment] = useState(initial?.requires_payment || false);
   const [fields, setFields] = useState<(LeadFormField & { _id: string })[]>(
-    (initial?.schema.fields || []).map((f) => ({ ...f, _id: uid() }))
+    (initial?.form_schema.fields || []).map((f) => ({ ...f, _id: uid() }))
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Feedback | null>(null);
@@ -345,7 +345,7 @@ function FormEditor({
         trigger_intent: triggerIntent.trim() || null,
         is_default: isDefault,
         requires_payment: requiresPayment,
-        schema: {
+        form_schema: {
           fields: fields.map(({ _id, ...f }) => ({
             ...f,
             key: f.key.trim(),
