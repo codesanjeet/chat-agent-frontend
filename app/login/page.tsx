@@ -1,39 +1,5 @@
 "use client";
 
-/**
- * /login
- *
- * UI is the "brand panel + live demo" version (unchanged visual design).
- * Auth handling is delegated entirely to `@/components/lib/authServices`
- * (requestOtp / verifyOtp / googleLogin) instead of hand-rolled fetch()
- * calls -- that service layer owns request/response shape, headers, and
- * whatever cookie/localStorage token handling it does internally, so this
- * component no longer touches localStorage or the access token directly.
- *
- * `verifyOtp` / `googleLogin` already unwrap the backend's `TokenResponse`
- * (`{ access_token, token_type, user }`) for us -- they resolve directly with
- * the trimmed `UserOut` shape: `{ id, email, profile_completed,
- * is_configured }`. The access token itself is stashed into `authStore`
- * inside the service layer, never exposed here. Business profile fields
- * (business_name, category, logo) are NOT part of this response -- those
- * live behind the profile router and are fetched/edited there, not here.
- * This page only reads `profile_completed` off the resolved user to decide
- * where to send a person after they log in.
- *
- * Google sign-in uses `@react-oauth/google`'s <GoogleLogin> under the hood,
- * rendered invisible but positioned exactly on top of the custom-styled
- * "Continue with Google" button, so the real click event (a trusted user
- * gesture) lands on Google's actual button. A synthetic `.click()` forwarded
- * from a hidden button does NOT work here -- Google's popup flow requires a
- * real, trusted click, so this overlay approach replaces that earlier trick.
- * This assumes a <GoogleOAuthProvider> is set up higher in the tree
- * (e.g. in the root layout).
- *
- * Desktop (lg+): split layout -- brand panel with the live demo on the
- * left, form on the right.
- * Mobile (<lg): compact brand + rotating-demo-line strip above the form.
- */
-
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -51,10 +17,10 @@ import {
   HiOutlineUser,
   HiOutlineUserGroup,
 } from "react-icons/hi2";
+import { useUser } from "@/components/lib/UserContext";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { requestOtp, verifyOtp, googleLogin } from "@/components/lib/authServices";
-
 const display = Space_Grotesk({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
@@ -211,7 +177,6 @@ function MobileDemoTicker() {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
@@ -262,7 +227,6 @@ useEffect(() => {
     },
     [router, searchParams]
   );
-
   const requestCode = useCallback(
     async (isResend: boolean) => {
       if (!emailValid || cooldown > 0) return;

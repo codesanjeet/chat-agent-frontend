@@ -1,27 +1,5 @@
 "use client";
 
-/**
- * Settings.tsx
- *
- * Business settings dashboard: profile, branding (logo/payment QR), business
- * links, usage, and a "coming soon" theme section. Each section saves
- * independently against its own backend endpoint (matching the router:
- * PATCH /settings/profile, PUT /settings/links, POST/DELETE /settings/logo,
- * POST/DELETE /settings/payment-qr) rather than one big form-wide save.
- *
- * Email is intentionally read-only here -- it's the login identity for both
- * OTP and Google, so changing it needs its own re-verification flow, not a
- * plain settings field (see backend router notes).
- *
- * File uploads (logo/QR) bypass apiRequest() via a local uploadFile() helper:
- * apiRequest always forces Content-Type: application/json, which breaks
- * multipart/form-data uploads (the browser needs to set its own boundary).
- *
- * Visual language matches ConversationHistory.tsx: #E5E5E0 hairlines,
- * #0B0F19 ink, #6B6F76 secondary text, #2B4EFF accent, rounded-2xl/rounded-xl
- * cards. Fully responsive: single column on mobile, two-column grid from lg+.
- */
-
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   HiOutlineBuildingOffice2,

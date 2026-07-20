@@ -27,6 +27,7 @@ import {
   FaPhone,
   FaLock,
   FaLightbulb,
+  FaHeadset,
 } from "react-icons/fa6";
 
 /* ── Chat-demo types (shared by Hero + LiveDemo) ─────────────────────── */
@@ -185,13 +186,29 @@ export const problemCards = [
   },
 ];
 
-/* ── How it works ─────────────────────────────────────────────────────── */
+/* ── How it works (self-serve) ───────────────────────────────────────── */
 
 export const steps = [
-  { icon: <FaClipboardList />, title: "Share your business info", desc: "Tell us your services, timings, prices, and common questions. You can even send us a WhatsApp message — we will handle the rest." },
-  { icon: <FaBrain />, title: "Your Agent learns your business", desc: "We train your AI Agent on your specific business information. It becomes an expert on everything about you." },
-  { icon: <FaMobileScreenButton />, title: "Share a link or QR code", desc: "Place the QR code on your reception desk, menu card, or poster. Or share the link on WhatsApp. No website needed." },
-  { icon: <FaBolt />, title: "Customers get instant answers", desc: "Your Agent works all day, every day — answering questions, booking appointments, and capturing leads automatically." },
+  {
+    icon: <FaClipboardList />,
+    title: "Create your account",
+    desc: "Sign up in a few clicks — no calls, no waiting. You are ready to start setting up your Agent right away.",
+  },
+  {
+    icon: <FaBrain />,
+    title: "Upload your business info",
+    desc: "Add a PDF, images, plain text, or just your website link. Your Agent reads it and trains itself on your services, timings, prices, and common questions — automatically.",
+  },
+  {
+    icon: <FaMobileScreenButton />,
+    title: "Share a link or QR code",
+    desc: "Place the QR code on your reception desk, menu card, or poster. Or share the link on WhatsApp. No website needed.",
+  },
+  {
+    icon: <FaBolt />,
+    title: "Customers get instant answers",
+    desc: "Your Agent works all day, every day — answering questions, booking appointments, and capturing leads automatically.",
+  },
 ];
 
 /* ── Features ──────────────────────────────────────────────────────────── */
@@ -206,7 +223,7 @@ export const features = [
   { icon: <FaLanguage />, title: "Hindi & Regional Languages", desc: "Customers can chat in Hindi or their regional language comfortably." },
   { icon: <FaBell />, title: "Instant Notifications", desc: "Get notified by email the moment someone books, enquires, or leaves their details." },
   { icon: <FaChartSimple />, title: "Simple Dashboard", desc: "See how many customers chatted, what they asked, and how many became leads." },
-  { icon: <FaBookOpen />, title: "Upload Any Document", desc: "Upload your menu, fee chart, brochure, or price list — Agent reads and learns it." },
+  { icon: <FaBookOpen />, title: "Upload Any Document", desc: "Upload your menu, fee chart, brochure, or price list — Agent reads and learns it, all by yourself, in minutes." },
 ];
 
 /* ── Live demo tabs ────────────────────────────────────────────────────── */
@@ -293,7 +310,6 @@ export const whySolutions = [
 ];
 
 /* ── Pricing ───────────────────────────────────────────────────────────── */
-
 export const plans = [
   {
     name: "Free",
@@ -301,7 +317,6 @@ export const plans = [
     convos: "~50 conversations / month",
     credits: "1,000,000 AI credits",
     feats: [
-      "AI conversations",
       "QR code and hosted business page",
       "Hindi and regional language support",
       "Lead collection",
@@ -314,10 +329,10 @@ export const plans = [
     popular: false,
   },
   {
-    name: "Pro",
+    name: "Basic",
     price: "₹299",
-    convos: "~160 conversations / month",
-    credits: "7,500,000 AI credits",
+    convos: "~140 conversations / month",
+    credits: "7,000,000 AI credits",
     feats: [
       "Everything in Free",
       "Appointment booking",
@@ -331,17 +346,34 @@ export const plans = [
     popular: true,
   },
   {
-    name: "Business",
+    name: "Pro",
     price: "₹699",
-    convos: "~420 conversations / month",
-    credits: "20,000,000 AI credits",
+    convos: "~350 conversations / month",
+    credits: "17,000,000 AI credits",
+    feats: [
+      "Everything in Basic",
+      "Advanced analytics",
+      "Custom Agent name and branding",
+      "3,000 email notifications / mo",
+      "5 GB document storage",
+      "Priority setup assistance on request",
+    ],
+    cta: "Sign Up",
+    popular: false,
+  },
+  {
+    name: "Business",
+    price: "₹1499",
+    convos: "~800 conversations / month",
+    credits: "40,000,000 AI credits",
     feats: [
       "Everything in Pro",
       "Advanced analytics",
       "Custom Agent name and branding",
-      "5,000 email notifications / mo",
-      "5 GB document storage",
-      "Dedicated onboarding call",
+      "6,000 email notifications / mo",
+      "10 GB document storage",
+      "Priority setup assistance on request",
+      "Personal Onboarding and recommendation",
     ],
     cta: "Sign Up",
     popular: false,
@@ -349,9 +381,17 @@ export const plans = [
 ];
 
 export const perks = [
-  { icon: <FaPhone />, title: "Free Personal Setup Call", desc: "We'll call you, understand your business, and set up your Agent together. Takes about 10 minutes." },
-  { icon: <FaGift />, title: "1 Month Free on the Pro Plan", desc: "New sign-ups get their first month on Pro at no extra cost. No credit card needed upfront." },
-  { icon: <FaLock />, title: "Priority Support", desc: "Get a fast, direct line to our team whenever you have a question or run into an issue." },
+  {
+    icon: <FaBrain />,
+    title: "Self-Serve Setup, No Calls Needed",
+    desc: "Create your account and upload your business info — a PDF, images, plain text, or your website link. Your Agent trains itself automatically in minutes.",
+  },
+  { icon: <FaGift />, title: "1 Month Free on the Basic Plan", desc: "New sign-ups get their first month on Basic at no extra cost. No credit card needed upfront." },
+  {
+    icon: <FaHeadset />,
+    title: "Support Whenever You Need It",
+    desc: "Everything is self-serve, but if you get stuck, just contact us — our team will reach out to help, no extra charge.",
+  },
   { icon: <FaLightbulb />, title: "You Help Shape the Product", desc: "Tell us what you need. Customer suggestions get built first." },
 ];
 
@@ -360,10 +400,10 @@ export const perks = [
 export const faqs = [
   { q: "Do I need to have a website?", a: "Not at all. We give you a hosted page and a QR code that works independently. You can share the link on WhatsApp, print the QR code on your visiting card, or paste it anywhere — no website required." },
   { q: "Can I just use the QR code?", a: "Absolutely. Many businesses print the QR code on their reception desk, menu cards, shop window, or visiting cards. Customers scan it and start chatting instantly — no app download needed on their side." },
-  { q: "How does the setup work exactly?", a: "Sign up for a plan and we'll schedule a 30-minute call with you. We'll ask about your business — services, timings, prices, and common questions — and set up your AI Agent live on that call. You do not need to do any technical work at all." },
-  { q: "Can it really book appointments?", a: "Yes. On Pro and Business plans, customers can request appointments directly through the AI Agent. You get a notification by email or phone. You can confirm manually or set it to auto-confirm." },
+  { q: "How does the setup work?", a: "It's entirely self-serve. Create your account, then upload your business information — a PDF, images, plain text, or a link to your website — and your AI Agent trains itself automatically. No technical skills or calls required. If you'd like a hand, just contact us and our team will reach out to help." },
+  { q: "Can it really book appointments?", a: "Yes. On Basic and Pro plans, customers can request appointments directly through the AI Agent. You get a notification by email or phone. You can confirm manually or set it to auto-confirm." },
   { q: "What if the Agent does not know an answer?", a: "If a customer asks something that is not in your business information, the Agent will politely let them know and offer to connect them with you directly. It never guesses or makes up answers." },
-  { q: "How are the conversation limits calculated?", a: "Each plan comes with a fixed pool of AI credits rather than a hard conversation cap. The conversation figures shown are an average estimate based on typical chat length — a plan listed at ~160 conversations may give you fewer if chats run long and detailed, or more if they're short and simple." },
+  { q: "How are the conversation limits calculated?", a: "Each plan comes with a fixed pool of AI credits rather than a hard conversation cap. The conversation figures shown are an average estimate based on typical chat length — a plan listed at ~140 conversations may give you fewer if chats run long and detailed, or more if they're short and simple." },
   { q: "Will the pricing stay the same?", a: "We are honest about this — prices may change as we grow. AI infrastructure, new features, and support cost money. Existing customers will always get advance notice before any price change. We are committed to staying affordable for Indian small businesses." },
   { q: "Which types of businesses can use this?", a: "Any business that has customers asking questions can use this — clinics, schools, restaurants, cafes, salons, gyms, real estate agents, coaching institutes, retail shops, and many more. If your customers ask questions, your AI Agent can answer them." },
 ];

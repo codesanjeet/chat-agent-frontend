@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /dashboard
+Disallow: /onboarding
+
+Sitemap: https://agent.kiteum.com/sitemap.xml

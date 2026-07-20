@@ -1,14 +1,3 @@
-/**
- * DashboardView.tsx
- *
- * Charts use recharts. Data now comes from GET /settings/analytics --
- * conversations/leads are already deduped by session server-side (a
- * returning visitor on the same session_id is never double-counted), so
- * this component just renders whatever it's given.
- *
- * Auth/refresh/base-URL handling all comes from lib/apiReq -- this file
- * doesn't touch fetch() directly.
- */
 
 "use client";
 

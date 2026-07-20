@@ -1,22 +1,5 @@
 "use client";
 
-/**
- * Leads.tsx
- *
- * Two-tab dashboard: "Forms" lets the owner build/edit the lead-capture
- * forms the chatbot triggers, matching:
- *   POST/GET /leads/forms, GET/PATCH/DELETE /leads/forms/{id}
- * "Leads" lists submitted entries against:
- *   GET /leads, PATCH /leads/{id}/payment-status, DELETE /leads/{id}
- *
- * Payment verification is manual for MVP -- the business reviews the
- * uploaded screenshot (payment_proof_url) against their own payment QR
- * (from Settings) and flips the status here. Nothing on the public side
- * ever blocks on payment; this tab is purely follow-up bookkeeping.
- *
- * Visual language matches Settings.tsx: #E5E5E0 hairlines, #0B0F19 ink,
- * #6B6F76 secondary text, #2B4EFF accent, rounded-2xl/rounded-xl cards.
- */
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {

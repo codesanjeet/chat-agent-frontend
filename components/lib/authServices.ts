@@ -3,15 +3,7 @@ import apiRequest from './apiReq';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-// Matches app/schemas/user_auth.py::UserOut. Business profile fields
-// (business_name, business_category, logo) live behind the profile router
-// conceptually, but the backend's UserOut schema is shared between /auth/me
-// and /user/profile/complete -- so those fields (and slug) are present on
-// every response, even though most call sites here only read identity plus
-// the two routing flags (profile_completed, is_configured). slug is typed
-// here (rather than a separate profile-only type) because completeProfile()
-// below returns this exact type and callers may want the freshly-assigned
-// slug right after saving, without a second round-trip to /auth/me.
+
 export type UserOut = {
   id: string;
   email: string;

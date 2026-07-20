@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FaArrowRight, FaPlay, FaCheck, FaFileLines } from "react-icons/fa6";
+import { FaArrowRight, FaPlay, FaCheck, FaFileLines, FaGift } from "react-icons/fa6";
 import { PhoneShell, ChatDemo } from "./ChatWidget";
 import { chips, clinicTheme, clinicSteps } from "@/components/lib/data";
 
@@ -16,7 +16,7 @@ export function Hero() {
           <div>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-blue-700 shadow-sm">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Now Live — Sign Up Free
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> July Special — 1 Month Free on Basic
               </div>
 
               <h1 className="font-display text-[2.1rem] font-black leading-[1.12] tracking-tight text-slate-900 sm:text-[3.4rem] lg:text-[3.75rem] lg:leading-[1.08]">
@@ -31,9 +31,17 @@ export function Hero() {
                 your menu, captures leads — while you focus on running your business.
               </p>
 
+              <div className="mt-4 flex max-w-[460px] items-start gap-2.5 rounded-xl bg-emerald-50 px-4 py-3 text-[0.85rem] font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                <FaGift className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-600" />
+                <span>
+                  Sign up anytime in July and get your first month of the Basic plan (₹299) absolutely free —
+                  individuals and businesses both qualify.
+                </span>
+              </div>
+
               <div className="mt-9 flex flex-wrap gap-3">
                 <a
-                  href="/login"
+                  href="/dashboard"
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-7 py-3.5 text-sm font-bold tracking-tight text-white shadow-[0_10px_24px_-6px_rgba(37,99,235,0.5)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-[0_14px_30px_-6px_rgba(37,99,235,0.55)]"
                 >
                   Sign Up — It&apos;s Free <FaArrowRight className="h-3.5 w-3.5" />
@@ -50,7 +58,7 @@ export function Hero() {
                 {[
                   ["24/7", "Always available"],
                   ["<3s", "Reply time"],
-                  ["30m", "Setup time"],
+                  ["10m", "Setup time"],
                 ].map(([num, label], i) => (
                   <div key={num} className={`flex items-center gap-8 ${i > 0 ? "border-l border-slate-200 pl-8" : ""}`}>
                     <div>

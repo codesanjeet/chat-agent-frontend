@@ -20,6 +20,28 @@ export async function completeProfile(
   });
 }
 
+// Mirrors app/schemas/legal.py::AgreementAcceptIn / AgreementOut.
+export type DocumentType = 'tos' | 'privacy';
+
+export type AgreementOut = {
+  document_type: DocumentType;
+  document_version: string;
+  accepted_at: string;
+};
+
+export async function acceptAgreement(
+  documentType: DocumentType,
+  documentVersion: string
+): Promise<AgreementOut> {
+  return apiRequest('/legal/accept', {
+    method: 'POST',
+    body: JSON.stringify({
+      document_type: documentType,
+      document_version: documentVersion,
+    }),
+  });
+}
+
 // Inlined raw fetch -- deliberately NOT using apiRequest() here, same as
 // Settings.tsx's local uploadFile() helper. apiRequest forces
 // Content-Type: application/json, which breaks multipart/form-data (the

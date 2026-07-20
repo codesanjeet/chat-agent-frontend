@@ -1,35 +1,9 @@
 "use client";
 
-/**
- * Trainer.tsx
- *
- * The "config agent" screen -- everything the business owner uses to teach
- * the agent about their business. Rendered by MainContent when the
- * "Trainer" tab is active (see Sidebar.tsx / MainContent.tsx).
- *
- * Two sub-sections, one piece of local state deciding which shows:
- *   - Knowledge base -- upload text/image/pdf/weblink sources, review the
- *     extracted preview, edit it, confirm it (which embeds it + extracts
- *     structured facts), resolve fact conflicts, and browse saved facts.
- *   - Business links -- the canonical list of "where to find us" links the
- *     agent can hand out (Instagram, booking page, menu, etc).
- *
- * Gallery used to live here as a third tab, but the backend grew a real
- * folder tree (folders + images, nested, recursive delete) and the UI for
- * that -- breadcrumbs, folder grid, image grid, add-folder/add-image forms,
- * shared edit modal -- got big enough to warrant its own file. It's split
- * out into GalleryTrainer.tsx, which imports the shared primitives below
- * and is mounted here as the "gallery" tab.
- *
- * Visual language matches Sidebar.tsx exactly: #F5F5F3/#F4F4F1 light
- * chrome, #0B0F19 ink, #6B6F76 secondary text, #E5E5E0 hairlines, #2B4EFF
- * accent. Space Grotesk / Inter variables are already in scope from the
- * ancestor layout, so headings just reference var(--font-display).
- */
 
 import { authStore } from "../lib/authStore";
 import { refreshAccessToken } from "../lib/authServices";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   HiOutlineArrowUpTray,
   HiOutlineCheck,
@@ -45,9 +19,10 @@ import {
   HiOutlineTrash,
   HiOutlineXMark,
 } from "react-icons/hi2";
+import Link from "next/link";
 import apiRequest from "../lib/apiReq";
 import GalleryTrainer from "./GalleryTrainer";
-
+import { useUser } from "../lib/UserContext";
 /* -------------------------------------------------------------------------
  * Shared types (mirror the FastAPI schemas exactly, field-for-field)
  * ---------------------------------------------------------------------- */
@@ -85,6 +60,14 @@ interface ConfirmDocumentResult {
 interface BusinessFact {
   key: string;
   value: string;
+  // Ties the fact back to the document it was extracted from. The FK on the
+  // backend is ON DELETE SET NULL, so this becomes null if that document is
+  // later deleted (as opposed to facts that never had a source document).
+  source_document_id: string | null;
+  // Human label of the source document, when the API provides it. Not
+  // guaranteed to be present even when source_document_id is set, so we
+  // fall back gracefully when it's missing.
+  source_label?: string | null;
 }
 
 interface BusinessLink {
@@ -184,6 +167,18 @@ function formatDate(iso: string) {
 }
 
 export { apiJson, apiUpload, formatDate };
+
+// Fired whenever a document is confirmed or deleted -- i.e. whenever the
+// count of confirmed/embedded documents could have changed. The dashboard
+// layout's header button listens for this to refresh its glow state without
+// needing a shared store or a full page navigation.
+export const DOCUMENTS_UPDATED_EVENT = "documents-updated";
+
+function notifyDocumentsUpdated() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(DOCUMENTS_UPDATED_EVENT));
+  }
+}
 
 /* -------------------------------------------------------------------------
  * Small shared UI primitives -- exported for GalleryTrainer.tsx to reuse so
@@ -312,6 +307,32 @@ export function EmptyState({ icon: Icon, text }: { icon: typeof HiOutlineDocumen
   );
 }
 
+// Glows only when the very first chunk has just been added (chunkCount === 1)
+// to nudge a first-time test. Once there's more than one chunk we assume the
+// user has already tried it at least once, so it drops back to a plain
+// button instead of competing for attention while they keep adding sources.
+export function TestChatbotButton({ slug, chunkCount }: { slug?: string | null; chunkCount: number }) {
+  if (!slug || chunkCount === 0) return null;
+
+  const shouldGlow = chunkCount === 1;
+
+  return (
+    <Link
+      href={`/chat/${slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+        shouldGlow
+          ? "animate-pulse bg-[#2B4EFF] text-white shadow-lg shadow-[#2B4EFF]/40 ring-4 ring-[#2B4EFF]/30 hover:opacity-90"
+          : "border border-[#E5E5E0] bg-white text-[#0B0F19] hover:bg-black/[0.03]"
+      }`}
+    >
+      <HiOutlineSparkles size={16} className={shouldGlow ? "text-white" : "text-[#2B4EFF]"} />
+      Test your live chatbot
+    </Link>
+  );
+}
+
 /* =========================================================================
  * Top-level view
  * ====================================================================== */
@@ -368,11 +389,17 @@ const ADD_TABS: { id: SourceType; label: string; icon: typeof HiOutlineDocumentT
   { id: "weblink", label: "Web link", icon: HiOutlineGlobeAlt },
 ];
 
+// Sentinel key used to bucket facts whose source_document_id is null --
+// either because they were saved without ever being tied to a document, or
+// because their document was later deleted (FK is ON DELETE SET NULL).
+const UNLINKED_GROUP_KEY = "__unlinked__";
+
 function KnowledgeBaseSection() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [facts, setFacts] = useState<BusinessFact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const {refresh} = useUser();
 
   // conflict resolution modal, opened after a confirm() call returns conflicts
   const [conflictState, setConflictState] = useState<{
@@ -406,6 +433,7 @@ function KnowledgeBaseSection() {
     try {
       await apiJson(`/documents/${id}`, { method: "DELETE" });
       setDocuments((prev) => prev.filter((d) => d.id !== id));
+      notifyDocumentsUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't delete that source.");
     }
@@ -433,6 +461,7 @@ function KnowledgeBaseSection() {
       })) as ConfirmDocumentResult;
 
       setDocuments((prev) => prev.map((d) => (d.id === id ? result.document : d)));
+      notifyDocumentsUpdated();
       if (result.facts_saved.length) {
         const factList = (await apiJson("/documents/facts")) as BusinessFact[];
         setFacts(factList);
@@ -444,8 +473,35 @@ function KnowledgeBaseSection() {
           choices: Object.fromEntries(result.conflicts.map((c) => [c.key, "keep"])),
         });
       }
+      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't confirm that source.");
+    }
+  };
+
+  const handleFactUpdate = async (key: string, value: string) => {
+    setError(null);
+    try {
+      const updated = (await apiJson(`/documents/facts/${encodeURIComponent(key)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ value }),
+      })) as BusinessFact;
+      setFacts((prev) => prev.map((f) => (f.key === key ? updated : f)));
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update that fact.");
+      throw err;
+    }
+  };
+
+  const handleFactDelete = async (key: string) => {
+    setError(null);
+    try {
+      await apiJson(`/documents/facts/${encodeURIComponent(key)}`, { method: "DELETE" });
+      setFacts((prev) => prev.filter((f) => f.key !== key));
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that fact.");
     }
   };
 
@@ -471,6 +527,40 @@ function KnowledgeBaseSection() {
       setError(err instanceof Error ? err.message : "Couldn't save those decisions.");
     }
   };
+
+  // Group facts by their source document. Facts with a null
+  // source_document_id (never linked, or linked doc was deleted) are
+  // bucketed together under UNLINKED_GROUP_KEY instead of being dropped.
+  const factGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      { label: string; facts: BusinessFact[] }
+    >();
+
+    for (const fact of facts) {
+      const groupKey = fact.source_document_id ?? UNLINKED_GROUP_KEY;
+
+      if (!groups.has(groupKey)) {
+        let label: string;
+        if (groupKey === UNLINKED_GROUP_KEY) {
+          label = "No longer linked to a source";
+        } else {
+          const doc = documents.find((d) => d.id === groupKey);
+          label = fact.source_label || doc?.source_label || "Unknown source";
+        }
+        groups.set(groupKey, { label, facts: [] });
+      }
+
+      groups.get(groupKey)!.facts.push(fact);
+    }
+
+    // Keep the "unlinked" bucket last so linked, named sources read first.
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === UNLINKED_GROUP_KEY) return 1;
+      if (b === UNLINKED_GROUP_KEY) return -1;
+      return 0;
+    });
+  }, [facts, documents]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -522,16 +612,31 @@ function KnowledgeBaseSection() {
         {facts.length === 0 ? (
           <EmptyState icon={HiOutlineCheckCircle} text="Confirmed sources will surface structured facts here." />
         ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {facts.map((fact) => (
-              <div
-                key={fact.key}
-                className="rounded-xl border border-[#E5E5E0] px-3 py-2"
-              >
-                <p className="text-xs font-medium uppercase tracking-wide text-[#6B6F76]">
-                  {fact.key}
-                </p>
-                <p className="truncate text-sm text-[#0B0F19]">{fact.value}</p>
+          <div className="flex flex-col gap-5">
+            {factGroups.map(([groupKey, group]) => (
+              <div key={groupKey}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className={`text-xs font-semibold uppercase tracking-wide ${
+                      groupKey === UNLINKED_GROUP_KEY ? "text-amber-700" : "text-[#6B6F76]"
+                    }`}
+                  >
+                    {group.label}
+                  </span>
+                  <span className="text-xs text-[#6B6F76]">
+                    ({group.facts.length})
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {group.facts.map((fact) => (
+                    <FactCard
+                      key={`${groupKey}-${fact.key}`}
+                      fact={fact}
+                      onSave={(value) => handleFactUpdate(fact.key, value)}
+                      onDelete={() => handleFactDelete(fact.key)}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -550,6 +655,116 @@ function KnowledgeBaseSection() {
           onCancel={() => setConflictState(null)}
           onSubmit={submitConflictResolution}
         />
+      )}
+    </div>
+  );
+}
+
+function FactCard({
+  fact,
+  onSave,
+  onDelete,
+}: {
+  fact: BusinessFact;
+  onSave: (value: string) => Promise<void>;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(fact.value);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const save = async () => {
+    if (!draft.trim()) return;
+    setSaving(true);
+    try {
+      await onSave(draft.trim());
+      setEditing(false);
+    } catch {
+      // error already surfaced by parent's banner
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
+  };
+
+  return (
+    <div className="group rounded-xl border border-[#E5E5E0] px-3 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-[#6B6F76]">
+          {fact.key}
+        </p>
+        {!editing && !confirmingDelete && (
+          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(fact.value);
+                setEditing(true);
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-[#6B6F76] hover:bg-black/[0.05] hover:text-[#0B0F19]"
+              aria-label="Edit fact"
+            >
+              <HiOutlinePencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-[#6B6F76] hover:bg-rose-50 hover:text-rose-600"
+              aria-label="Delete fact"
+            >
+              <HiOutlineTrash size={13} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="mt-1.5 flex flex-col gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+            className="w-full rounded-lg border border-[#E5E5E0] px-2 py-1 text-sm text-[#0B0F19] outline-none focus:border-[#2B4EFF]"
+          />
+          <div className="flex items-center gap-2">
+            <GhostButton
+              onClick={() => {
+                setDraft(fact.value);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </GhostButton>
+            <PrimaryButton onClick={save} disabled={saving || !draft.trim()}>
+              {saving ? "Saving…" : "Save"}
+            </PrimaryButton>
+          </div>
+        </div>
+      ) : confirmingDelete ? (
+        <div className="mt-1.5 flex flex-col gap-2">
+          <p className="text-sm text-[#0B0F19]">Delete this fact?</p>
+          <div className="flex items-center gap-2">
+            <GhostButton onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+              Cancel
+            </GhostButton>
+            <GhostButton onClick={confirmDelete} disabled={deleting} danger>
+              {deleting ? "Deleting…" : "Delete"}
+            </GhostButton>
+          </div>
+        </div>
+      ) : (
+        <p className="truncate text-sm text-[#0B0F19]">{fact.value}</p>
       )}
     </div>
   );
@@ -775,8 +990,9 @@ function DocumentRow({
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            rows={5}
-            className="w-full resize-y rounded-xl border border-[#E5E5E0] bg-white px-3 py-2 text-sm text-[#0B0F19] outline-none focus:border-[#2B4EFF]"
+            rows={16}
+            autoFocus
+            className="min-h-[24rem] w-full resize-y rounded-xl border border-[#E5E5E0] bg-white px-3 py-2 text-sm leading-relaxed text-[#0B0F19] outline-none focus:border-[#2B4EFF]"
           />
         ) : (
           <p className="whitespace-pre-wrap rounded-xl bg-black/[0.02] px-3 py-2 text-sm text-[#0B0F19] line-clamp-4">

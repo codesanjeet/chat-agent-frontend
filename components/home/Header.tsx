@@ -39,13 +39,13 @@ export function SiteHeader() {
 
         <div className="hidden items-center gap-3 md:flex">
           <a
-            href="/login"
+            href="/dashboard"
             className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
           >
             Sign in
           </a>
           <a
-            href="/login"
+            href="/dashboard"
             className="rounded-lg bg-slate-900 px-[22px] py-2.5 text-sm font-bold tracking-tight text-white shadow-[0_6px_16px_-4px_rgba(15,23,42,0.35)] transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-[0_10px_22px_-6px_rgba(15,23,42,0.4)]"
           >
             Sign Up Free
@@ -81,7 +81,7 @@ export function SiteHeader() {
                 </a>
               ))}
               <a
-                href="/login"
+                href="/dashboard"
                 onClick={() => setMobileOpen(false)}
                 className="mt-3.5 block rounded-lg bg-slate-900 px-[22px] py-2.5 text-center text-sm font-bold text-white shadow-[0_6px_16px_-4px_rgba(15,23,42,0.35)]"
               >

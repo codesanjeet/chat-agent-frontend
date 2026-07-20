@@ -1,20 +1,5 @@
 "use client";
 
-/**
- * ConversationHistory.tsx
- *
- * Admin view of past end-user conversations: a session list on the left,
- * the selected session's message thread on the right, both paginated
- * against GET /chat/sessions and GET /chat/sessions/{session_id}/messages.
- *
- * Each message thread now also surfaces what actually happened in the
- * conversation beyond plain text: gallery items shown, links shown, which
- * lead form was triggered, and whether the turn was escalated. Submitted
- * leads (with payment status/proof) are a SEPARATE record from messages
- * (tied by session_id, not per-message), so they're shown as their own
- * summary block above the thread rather than inline per message.
- */
-
 import { useCallback, useEffect, useState } from "react";
 import {
   HiOutlineChatBubbleLeftRight,

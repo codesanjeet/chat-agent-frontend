@@ -1,26 +1,5 @@
 "use client";
 
-/**
- * GalleryTrainer.tsx
- *
- * The gallery tab inside Train AI. Unlike the old flat photo grid, the
- * backend now models this as a tree: folders group photos (one property /
- * one product / one event), folders can be described and searched just
- * like an image, and images live at any depth inside folders. This
- * component browses one level at a time (GET /gallery?parent_id=...),
- * with breadcrumbs for navigating back up.
- *
- * `name` is gone -- replaced by two distinct fields per the current
- * schema:
- *   - title: optional, short, user-facing label (shown in chat + the
- *     public gallery browser). Folders require it (GalleryFolderIn.title
- *     has no default); images don't (upload's title Form field defaults
- *     to None).
- *   - description: mandatory on both folders and images -- this is the
- *     AI's grounding text, never shown to the end customer, but the admin
- *     sees and edits it here since they're the one writing it.
- */
-
 import { useCallback, useEffect, useState } from "react";
 import {
   HiOutlineArrowUpTray,

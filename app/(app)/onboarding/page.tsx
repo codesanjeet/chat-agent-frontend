@@ -1,40 +1,5 @@
 "use client";
 
-/**
- * /profile
- *
- * First required step after signup. Backed by:
- *   PUT /user/profile/complete  (app/schemas/user.py::CompleteProfileRequest)
- * which sets `profile_completed = true` server-side. Does NOT touch
- * `is_configured` -- that's a separate, later onboarding step (knowledge
- * upload + lead form), so a person who just finished this page is sent to
- * /onboarding next, not /dashboard.
- *
- * This version adds an editable slug field: it auto-fills from the
- * business name as the person types (normalized the same way the backend
- * does -- see slugifyPreview), but once they edit it directly it stops
- * following the name field. The slug becomes the tenant's public chat URL
- * (/chat/{slug}), so a warning is shown that changing it later can break
- * already-shared links and hurt search ranking built up on the old URL --
- * this is the moment to get it right, since most people won't revisit it.
- *
- * Route guard: on mount we fetch the current user. If they're not logged in,
- * bounce to /login. If their profile is *already* completed (e.g. they typed
- * /profile into the URL bar directly, or refreshed after finishing it),
- * bounce them onward instead of letting them fill the form out twice.
- *
- * Logo upload is a separate request (`uploadLogo`) that resolves to a URL
- * before the URL is included in the `complete` submission -- see the
- * ASSUMPTION note in `profileServices.ts`, since the actual upload endpoint
- * wasn't part of the backend code shared for this page.
- *
- * Visual language matches /login: same three fonts, same dark/blue/cream
- * palette, same split layout on desktop with a compact stacked version on
- * mobile. The signature element here is a live preview of the agent's chat
- * header -- name, logo, category badge -- updating as the person types, so
- * they see what their customers will see before they save anything.
- */
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -54,7 +19,7 @@ import {
 } from "react-icons/hi2";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { fetchCurrentUser } from "@/components/lib/authServices";
-import { completeProfile, uploadLogo } from "@/components/lib/Profileservices";
+import { completeProfile, uploadLogo, acceptAgreement } from "@/components/lib/Profileservices";
 
 const display = Space_Grotesk({
   subsets: ["latin"],
@@ -68,10 +33,6 @@ const mono = JetBrains_Mono({
   variable: "--font-mono",
 });
 
-// Client-side guard only -- the backend is the source of truth on what's
-// actually a valid category. Tuned to the property/services audience the
-// live demo on /login is built around; adjust freely if the real category
-// list lives in a config somewhere.
 const CATEGORIES = [
   "Real Estate & Property",
   "Retail & Shopping",
@@ -87,6 +48,14 @@ const MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5MB, client-side sanity check only
 // Display-only base for the "your chat link" preview -- adjust to the real
 // public domain this app is served from.
 const CHAT_LINK_BASE = "agent.kiteum.com/chat";
+
+// Must match app/routers/legal.py::CURRENT_VERSIONS exactly. Bump both by
+// hand whenever the static ToS/Privacy HTML changes meaningfully -- the
+// backend independently enforces this version too, so a stale value here
+// just means the accept call succeeds but complete_profile_endpoint still
+// 403s, not a silent bypass.
+const CURRENT_TOS_VERSION = "v1";
+const CURRENT_PRIVACY_VERSION = "v1";
 
 // Mirrors crud/user.py::_slugify exactly -- lowercase, any run of
 // non-alphanumeric characters collapses to a single hyphen, leading/
@@ -115,6 +84,7 @@ export default function ProfilePage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState<Loading>(null);
   const [error, setError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   // Slug -- auto-fills from businessName until the person edits it
   // directly, at which point it becomes independent (see handleSlugChange).
@@ -131,7 +101,7 @@ export default function ProfilePage() {
         const user = await fetchCurrentUser();
         if (cancelled) return;
         if (user.profile_completed) {
-          router.replace(user.is_configured ? "/dashboard" : "/onboarding");
+          router.replace("/dashboard");
           return;
         }
         setGuard("ready");
@@ -163,7 +133,8 @@ export default function ProfilePage() {
   const nameValid = businessName.trim().length > 0;
   const categoryValid = category.length > 0;
   const slugValid = slug.trim().length > 0;
-  const canSubmit = nameValid && categoryValid && slugValid && loading === null;
+  const canSubmit =
+    nameValid && categoryValid && slugValid && agreed && loading === null;
 
   const handleLogoPick = () => fileInputRef.current?.click();
 
@@ -204,27 +175,35 @@ export default function ProfilePage() {
     setLogoPreview(null);
   };
 
-const handleSubmit = useCallback(
-  async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit) return;
-    setError(null);
-    setLoading("submit");
-    try {
-      const user = await completeProfile({
-        business_name: businessName.trim(),
-        business_category: category,
-        slug: slug.trim(),
-      });
-      router.replace("/dashboard");
-    } catch (err: any) {
-      setError(err?.message || "Couldn't save your profile. Try again.");
-    } finally {
-      setLoading(null);
-    }
-  },
-  [canSubmit, businessName, category, logoUrl, slug, router]
-);
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!canSubmit) return;
+      setError(null);
+      setLoading("submit");
+      try {
+        // Must succeed before the profile can be marked complete. The
+        // backend independently re-checks both agreements exist at the
+        // current version inside complete_profile_endpoint, so this isn't
+        // the only gate -- it's just what avoids a doomed profile-complete
+        // call when it's preventable client-side.
+        await acceptAgreement("tos", CURRENT_TOS_VERSION);
+        await acceptAgreement("privacy", CURRENT_PRIVACY_VERSION);
+
+        const user = await completeProfile({
+          business_name: businessName.trim(),
+          business_category: category,
+          slug: slug.trim(),
+        });
+        router.replace("/dashboard");
+      } catch (err: any) {
+        setError(err?.message || "Couldn't save your profile. Try again.");
+      } finally {
+        setLoading(null);
+      }
+    },
+    [canSubmit, businessName, category, logoUrl, slug, router]
+  );
 
   if (guard === "checking") {
     return (
@@ -414,7 +393,11 @@ const handleSubmit = useCallback(
                 <div className="mt-1.5 flex items-start gap-1.5 text-xs text-[#8A5A00]">
                   <HiOutlineExclamationTriangle size={13} className="mt-0.5 shrink-0" />
                   <span>
-This is the link your customers will use. Try to get it right now — if you change it later, links you've already shared will stop working. If your business name's taken, try adding your city or a number (e.g. my-business-new-delhi).
+                    This is the link your customers will use. Try to get it
+                    right now — if you change it later, links you've already
+                    shared will stop working. If your business name's taken,
+                    try adding your city or a number (e.g.
+                    my-business-new-delhi).
                   </span>
                 </div>
               </div>
@@ -444,6 +427,38 @@ This is the link your customers will use. Try to get it right now — if you cha
                     className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#6B6F76]"
                   />
                 </div>
+              </div>
+
+              {/* Terms agreement -- required, gates canSubmit */}
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="agree-terms"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#E5E5E0] text-[#2B4EFF] focus:ring-[#2B4EFF]"
+                />
+                <label htmlFor="agree-terms" className="text-xs text-[#6B6F76]">
+                  I agree to the{" "}
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#2B4EFF] underline"
+                  >
+                    Terms of Service
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    href="/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#2B4EFF] underline"
+                  >
+                    Privacy Policy
+                  </a>
+                  .
+                </label>
               </div>
 
               <button

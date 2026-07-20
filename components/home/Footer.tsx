@@ -9,7 +9,7 @@ export function SiteFooter() {
             </div>
             <p className="max-w-[260px] text-[0.82rem] leading-loose text-slate-400">
               An AI Agent that works like a digital employee for your business — available 24/7, no website needed,
-              set up in 30 minutes.
+              set up in 10 minutes.
             </p>
           </div>
 
@@ -55,8 +55,8 @@ export function SiteFooter() {
                 </a>
               </li>
               <li>
-                <a href="#" className="text-[0.84rem] text-slate-400 transition-colors hover:text-white">
-                  Terms of Use
+                <a href="/terms" className="text-[0.84rem] text-slate-400 transition-colors hover:text-white">
+                  Terms of Service
                 </a>
               </li>
               <li>
@@ -70,7 +70,7 @@ export function SiteFooter() {
 
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-800 pt-7">
           <p className="text-[0.78rem] text-slate-500">© 2026 Agent.Kiteum — All rights reserved</p>
-          <p className="text-[0.78rem] text-slate-500">Made with ❤️ for Indian small businesses</p>
+          <p className="text-[0.78rem] text-slate-500">Made with ❤️ for Indian businesses</p>
         </div>
       </div>
     </footer>

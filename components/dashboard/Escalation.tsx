@@ -1,20 +1,6 @@
 "use client";
 
-/**
- * Escalations.tsx
- *
- * Admin review queue for questions the agent couldn't answer and flagged
- * (see run_chat_turn's escalated=true path). Business answers here, which
- * both resolves the escalation and -- per the earlier design discussion --
- * is what should feed back into the agent's knowledge for next time.
- *
- * Matches the exact API contract from your chat.py router:
- *   GET  /chat/escalations?status_filter=...  -> EscalatedQuestionOut[]
- *   POST /chat/escalations/{id}/resolve       body: { admin_answer } -> EscalatedQuestionOut
- *
- * Visual language matches Settings.tsx: #E5E5E0 hairlines, #0B0F19 ink,
- * #6B6F76 secondary text, #2B4EFF accent, rounded-2xl/rounded-xl cards.
- */
+
 
 import { useCallback, useEffect, useState } from "react";
 import {
