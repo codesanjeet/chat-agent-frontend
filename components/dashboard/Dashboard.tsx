@@ -188,13 +188,13 @@ function UsageCard({ usage }: { usage: UsageInfo | null }) {
               {usage.email_used.toLocaleString()} / {usage.email_limit.toLocaleString()}
             </p>
           </div>
-          <div className="rounded-xl bg-[#F4F4F1] p-3">
+          {/* <div className="rounded-xl bg-[#F4F4F1] p-3">
             <p className="text-[#6B6F76]">Voice minutes</p>
             <p className="mt-0.5 font-[family-name:var(--font-display)] text-base font-semibold text-[#0B0F19]">
               {usage.ai_voice_agents_used_min.toLocaleString()} /{" "}
               {usage.ai_voice_agents_limit_min.toLocaleString()}
             </p>
-          </div>
+          </div> */}
         </div>
 
         <p className="text-[10px] text-[#B9BAB6]">
@@ -226,6 +226,7 @@ function InlineMessage({ type, text }: Feedback) {
 function ShareQrCard({ slug }: { slug: string | null }) {
   const qrRef = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState<Feedback | null>(null);
+  const [slugCopied, setSlugCopied] = useState(false);
 
   if (!FRONTEND_BASE_URL) {
     return (
@@ -245,12 +246,22 @@ function ShareQrCard({ slug }: { slug: string | null }) {
 
   const chatUrl = `${FRONTEND_BASE_URL.replace(/\/$/, "")}/chat/${slug}`;
 
-  const handleCopy = async () => {
+  const handleCopyUrl = async () => {
     try {
       await navigator.clipboard.writeText(chatUrl);
       setMessage({ type: "success", text: "Link copied." });
     } catch {
       setMessage({ type: "error", text: "Couldn't copy link." });
+    }
+  };
+
+  const handleCopySlug = async () => {
+    try {
+      await navigator.clipboard.writeText(slug);
+      setSlugCopied(true);
+      setTimeout(() => setSlugCopied(false), 1500);
+    } catch {
+      setMessage({ type: "error", text: "Couldn't copy slug." });
     }
   };
 
@@ -304,7 +315,8 @@ function ShareQrCard({ slug }: { slug: string | null }) {
 
   return (
     <CardShell title="Share your chatbot" icon={<HiOutlineQrCode size={16} />}>
-      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+      <div className="flex flex-col items-center gap-4">
+        {/* QR now leads the card */}
         <div
           ref={qrRef}
           className="flex shrink-0 items-center justify-center rounded-xl border border-[#E5E5E0] bg-white p-4"
@@ -312,25 +324,40 @@ function ShareQrCard({ slug }: { slug: string | null }) {
           <QRCode value={chatUrl} size={128} />
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <p className="truncate rounded-xl border border-[#E5E5E0] bg-[#F4F4F1] px-3.5 py-2.5 text-xs text-[#0B0F19]">
-            {chatUrl}
-          </p>
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="rounded-xl bg-[#2B4EFF] px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1E3ADE]"
+        >
+          Download QR
+        </button>
 
-          <div className="flex flex-wrap gap-2">
+        <div className="flex w-full min-w-0 flex-col gap-3">
+          {/* Slug-only copy control */}
+          <div>
+            <span className="mb-1 block text-xs font-medium text-[#0B0F19]">Your slug</span>
             <button
               type="button"
-              onClick={handleCopy}
-              className="rounded-xl border border-[#E5E5E0] bg-white px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[#F5F5F3]"
+              onClick={handleCopySlug}
+              className="flex w-full items-center justify-between rounded-xl border border-[#E5E5E0] bg-[#F4F4F1] px-3.5 py-2.5 text-xs text-[#0B0F19] transition-colors hover:bg-[#EDEDE9]"
+            >
+              <span className="truncate font-medium">{slug}</span>
+              <span className="ml-2 shrink-0 text-[#2B4EFF]">{slugCopied ? "Copied" : "Copy"}</span>
+            </button>
+          </div>
+
+          {/* Full URL row (unchanged, just moved below the slug) */}
+          <div>
+            <span className="mb-1 block text-xs font-medium text-[#0B0F19]">Full link</span>
+            <p className="truncate rounded-xl border border-[#E5E5E0] bg-[#F4F4F1] px-3.5 py-2.5 text-xs text-[#0B0F19]">
+              {chatUrl}
+            </p>
+            <button
+              type="button"
+              onClick={handleCopyUrl}
+              className="mt-2 rounded-xl border border-[#E5E5E0] bg-white px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[#F5F5F3]"
             >
               Copy link
-            </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="rounded-xl bg-[#2B4EFF] px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1E3ADE]"
-            >
-              Download QR
             </button>
           </div>
 
@@ -399,6 +426,11 @@ export default function DashboardView() {
 
   return (
     <div className="space-y-5">
+            {/* Quick-glance usage + share link, same widgets as Settings */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <ShareQrCard slug={settings.slug} />
+        <UsageCard usage={settings.usage} />
+      </div>
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Conversations over time -- area chart, spans 2 columns */}
         <CardShell
@@ -495,11 +527,7 @@ export default function DashboardView() {
         </div>
       </CardShell>
 
-      {/* Quick-glance usage + share link, same widgets as Settings */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <UsageCard usage={settings.usage} />
-        <ShareQrCard slug={settings.slug} />
-      </div>
+
     </div>
   );
 }

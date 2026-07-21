@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { FiArrowRight, FiLoader } from "react-icons/fi";
-import { getOrCreateSessionId, loadHistory, saveHistory, sendChatMessage, submitLead, type ThreadMessage } from "../lib/chat";
+import { getOrCreateSessionId, loadHistory, saveHistory, sendChatMessage, submitLead, getPublicBusiness, type ThreadMessage, type PublicBusinessOut } from "../lib/chat";
 import MessageBubble, { TypingIndicator } from "./MessageBubble";
 
 export interface ChatThreadProps {
@@ -28,8 +28,8 @@ function newId(): string {
 export default function ChatThread({
   slug,
   accentColor = "#2B4EFF",
-  logoUrl = null,
-  businessName = "Chat",
+  logoUrl,
+  businessName,
   welcomeMessage = "Hi! Ask me anything about us.",
   className = "",
   onOpenGallery,
@@ -38,6 +38,7 @@ export default function ChatThread({
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [publicBusiness, setPublicBusiness] = useState<PublicBusinessOut | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +49,23 @@ export default function ChatThread({
     setSessionId(sid);
     setMessages(loadHistory(slug, sid));
   }, [slug]);
+
+  // Branding fetch -- falls back silently to displayName/displayLogo
+  // defaults below if this fails or 404s.
+  useEffect(() => {
+    let cancelled = false;
+    getPublicBusiness(slug)
+      .then((data) => {
+        if (!cancelled) setPublicBusiness(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  const displayName = businessName ?? publicBusiness?.business_name ?? "Chat";
+  const displayLogo = logoUrl ?? publicBusiness?.logo ?? null;
 
   // Persist on every change, only once a real session exists (avoids
   // clobbering saved history with an empty array during bootstrap).
@@ -138,12 +156,12 @@ export default function ChatThread({
       }}
     >
       {/* Header */}
-      <div className="relative z-10 flex items-center gap-3 border-b border-black/[0.06] bg-white/80 px-4 py-3.5 backdrop-blur-xl">
-        {logoUrl ? (
+  <div className="relative z-10 flex items-center gap-3 border-b border-black/[0.06] bg-white/80 px-4 py-3.5 backdrop-blur-xl">
+        {displayLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={logoUrl}
-            alt={businessName}
+            src={displayLogo}
+            alt={displayName}
             className="h-9 w-9 rounded-full object-cover ring-1 ring-black/5 shadow-sm"
           />
         ) : (
@@ -151,11 +169,11 @@ export default function ChatThread({
             className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
             style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}CC)` }}
           >
-            {businessName.slice(0, 2).toUpperCase()}
+            {displayName.slice(0, 2).toUpperCase()}
           </div>
         )}
         <div className="flex flex-col leading-tight">
-          <p className="text-sm font-semibold text-[#0B0F19]">{businessName}</p>
+          <p className="text-sm font-semibold text-[#0B0F19]">{displayName}</p>
           <span className="flex items-center gap-1 text-[11px] text-[#6B6F76]">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Online
@@ -182,7 +200,7 @@ export default function ChatThread({
                 accentColor={accentColor}
                 slug={slug}
                 apiBaseUrl={process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"}
-                businessName={businessName}
+                businessName={displayName}
                 onOpenGallery={onOpenGallery}
                 onSubmitLead={(data) =>
                   m.role === "assistant" ? handleLeadSubmit(m.id, m.leadForm?.id ?? null, data) : Promise.resolve()

@@ -287,6 +287,79 @@ function FormsTab({ forms, setForms }: { forms: LeadForm[]; setForms: (f: LeadFo
  * Form editor: create or edit a single form + its dynamic field list
  * --------------------------------------------------------------------- */
 
+
+// Common fields a small business almost always wants -- one tap adds them
+// with sensible defaults already filled in, so most owners never have to
+// touch "custom field" at all.
+const FIELD_PRESETS: { label: string; type: FieldType; required?: boolean }[] = [
+  { label: "Name", type: "text", required: true },
+  { label: "Phone number", type: "phone", required: true },
+  { label: "Email", type: "email" },
+  { label: "Address", type: "text" },
+  { label: "Preferred date", type: "date" },
+  { label: "Budget", type: "number" },
+  { label: "Message", type: "textarea" },
+];
+
+// Plain-language labels for the field type picker -- "type: select" means
+// nothing to a business owner, "Multiple choice" does.
+const FIELD_TYPE_LABELS: Record<FieldType, string> = {
+  text: "Short answer",
+  textarea: "Long answer",
+  number: "Number",
+  email: "Email",
+  phone: "Phone number",
+  date: "Date",
+  select: "Multiple choice",
+};
+
+function slugifyKey(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "field";
+}
+
+function uniqueKey(base: string, existing: string[]): string {
+  if (!existing.includes(base)) return base;
+  let i = 2;
+  while (existing.includes(`${base}_${i}`)) i++;
+  return `${base}_${i}`;
+}
+
+type WizardStep = 1 | 2 | 3;
+
+function StepHeader({ step }: { step: WizardStep }) {
+  const steps = ["Basics", "Questions", "Review"];
+  return (
+    <div className="mb-5 flex items-center gap-2">
+      {steps.map((label, i) => {
+        const n = (i + 1) as WizardStep;
+        const active = n === step;
+        const done = n < step;
+        return (
+          <div key={label} className="flex items-center gap-2">
+            <div
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-medium ${
+                active
+                  ? "bg-[#2B4EFF] text-white"
+                  : done
+                  ? "bg-[#2B4EFF]/15 text-[#2B4EFF]"
+                  : "bg-[#F4F4F1] text-[#B9BAB6]"
+              }`}
+            >
+              {done ? <HiOutlineCheckCircle size={14} /> : n}
+            </div>
+            <span className={`text-xs font-medium ${active ? "text-[#0B0F19]" : "text-[#B9BAB6]"}`}>{label}</span>
+            {i < steps.length - 1 && <div className="h-px w-4 bg-[#E5E5E0]" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function FormEditor({
   initial,
   onCancel,
@@ -296,6 +369,8 @@ function FormEditor({
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const [step, setStep] = useState<WizardStep>(1);
+
   const [name, setName] = useState(initial?.name || "");
   const [triggerIntent, setTriggerIntent] = useState(initial?.trigger_intent || "");
   const [isDefault, setIsDefault] = useState(initial?.is_default || false);
@@ -303,38 +378,95 @@ function FormEditor({
   const [fields, setFields] = useState<(LeadFormField & { _id: string })[]>(
     (initial?.form_schema.fields || []).map((f) => ({ ...f, _id: uid() }))
   );
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Feedback | null>(null);
 
-  const addField = () =>
+  const existingKeys = (excludeId?: string) => fields.filter((f) => f._id !== excludeId).map((f) => f.key);
+
+  const addPreset = (preset: (typeof FIELD_PRESETS)[number]) => {
+    const key = uniqueKey(slugifyKey(preset.label), existingKeys());
     setFields((prev) => [
       ...prev,
-      { _id: uid(), key: "", label: "", type: "text", prompt: "", required: false, options: null },
+      {
+        _id: uid(),
+        key,
+        label: preset.label,
+        type: preset.type,
+        prompt: "",
+        required: preset.required ?? false,
+        options: preset.type === "select" ? [] : null,
+      },
     ]);
+  };
+
+  const addCustomField = () => {
+    const newField = {
+      _id: uid(),
+      key: "",
+      label: "",
+      type: "text" as FieldType,
+      prompt: "",
+      required: false,
+      options: null,
+    };
+    setFields((prev) => [...prev, newField]);
+    setEditingFieldId(newField._id);
+  };
 
   const updateField = (id: string, patch: Partial<LeadFormField>) =>
-    setFields((prev) => prev.map((f) => (f._id === id ? { ...f, ...patch } : f)));
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f._id !== id) return f;
+        const next = { ...f, ...patch };
+        // Keep key in sync with label for fields the person is typing fresh,
+        // so they never have to think about "key" as a separate concept.
+        if (patch.label !== undefined) {
+          next.key = uniqueKey(slugifyKey(patch.label), existingKeys(id));
+        }
+        return next;
+      })
+    );
 
-  const removeField = (id: string) => setFields((prev) => prev.filter((f) => f._id !== id));
+  const removeField = (id: string) => {
+    setFields((prev) => prev.filter((f) => f._id !== id));
+    if (editingFieldId === id) setEditingFieldId(null);
+  };
+
+  const presetAlreadyAdded = (label: string) =>
+    fields.some((f) => f.label.trim().toLowerCase() === label.toLowerCase());
+
+  const goToStep = (next: WizardStep) => {
+    setMessage(null);
+    if (next === 2 && !name.trim()) {
+      setMessage({ type: "error", text: "Give the form a name first." });
+      return;
+    }
+    if (next === 3 && fields.length === 0) {
+      setMessage({ type: "error", text: "Add at least one question." });
+      return;
+    }
+    setStep(next);
+  };
 
   const handleSave = async () => {
     setMessage(null);
 
     if (!name.trim()) {
       setMessage({ type: "error", text: "Give the form a name." });
+      setStep(1);
       return;
     }
     if (fields.length === 0) {
-      setMessage({ type: "error", text: "Add at least one field." });
+      setMessage({ type: "error", text: "Add at least one question." });
+      setStep(2);
       return;
     }
-    const keys = fields.map((f) => f.key.trim());
-    if (keys.some((k) => !k)) {
-      setMessage({ type: "error", text: "Every field needs a key." });
-      return;
-    }
-    if (new Set(keys).size !== keys.length) {
-      setMessage({ type: "error", text: "Field keys must be unique." });
+    const emptyLabel = fields.find((f) => !f.label.trim());
+    if (emptyLabel) {
+      setMessage({ type: "error", text: "Every question needs a label." });
+      setStep(2);
+      setEditingFieldId(emptyLabel._id);
       return;
     }
 
@@ -349,8 +481,8 @@ function FormEditor({
           fields: fields.map(({ _id, ...f }) => ({
             ...f,
             key: f.key.trim(),
-            label: f.label.trim() || f.key.trim(),
-            prompt: f.prompt.trim() || `Could you share your ${f.label.trim() || f.key.trim()}?`,
+            label: f.label.trim(),
+            prompt: f.prompt.trim() || `Could you share your ${f.label.trim()}?`,
             options: f.type === "select" ? f.options : null,
           })),
         },
@@ -374,161 +506,301 @@ function FormEditor({
       title={initial ? `Edit "${initial.name}"` : "New lead form"}
       icon={<HiOutlineClipboardDocumentList size={16} />}
     >
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <StepHeader step={step} />
+
+      {/* ---------------- Step 1: Basics ---------------- */}
+      {step === 1 && (
+        <div className="flex flex-col gap-4">
           <div>
-            <label className={labelClass}>Form name</label>
+            <label className={labelClass}>What's this form for?</label>
             <input
               className={inputClass}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Property Inquiry"
+              placeholder="e.g. Property Inquiry, Book a Table"
+              autoFocus
             />
           </div>
+
           <div>
             <label className={labelClass}>
-              Trigger hint <span className="text-[#B9BAB6]">— optional</span>
+              When should your chatbot bring this up? <span className="text-[#B9BAB6]">— optional</span>
             </label>
             <input
               className={inputClass}
               value={triggerIntent}
               onChange={(e) => setTriggerIntent(e.target.value)}
-              placeholder="e.g. site visit, quote request"
+              placeholder="e.g. when someone asks for a quote or wants to book a visit"
             />
+            <p className="mt-1.5 text-[11px] text-[#6B6F76]">
+              Leave this blank and your chatbot will use its best judgment.
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2 rounded-xl border border-[#E5E5E0] px-3.5 py-2.5 text-sm text-[#0B0F19]">
+            <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+            Make this the go-to form when nothing else fits
+          </label>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              onClick={() => goToStep(2)}
+              className="rounded-xl bg-[#2B4EFF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1E3ADE]"
+            >
+              Next: add questions
+            </button>
           </div>
         </div>
+      )}
 
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2 text-xs text-[#0B0F19]">
-            <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
-            Use as default form
-          </label>
-          <label className="flex items-center gap-2 text-xs text-[#0B0F19]">
+      {/* ---------------- Step 2: Fields ---------------- */}
+      {step === 2 && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className={labelClass}>Tap to add a common question</p>
+            <div className="flex flex-wrap gap-2">
+              {FIELD_PRESETS.map((p) => {
+                const added = presetAlreadyAdded(p.label);
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    disabled={added}
+                    onClick={() => addPreset(p)}
+                    className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-colors ${
+                      added
+                        ? "border-[#E5E5E0] bg-[#F4F4F1] text-[#B9BAB6]"
+                        : "border-[#E5E5E0] bg-white text-[#0B0F19] hover:border-[#2B4EFF] hover:text-[#2B4EFF]"
+                    }`}
+                  >
+                    {added ? <HiOutlineCheckCircle size={13} /> : <HiOutlinePlus size={13} />}
+                    {p.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={addCustomField}
+                className="flex items-center gap-1.5 rounded-full border border-dashed border-[#E5E5E0] px-3.5 py-2 text-xs font-medium text-[#6B6F76] transition-colors hover:bg-black/[0.02]"
+              >
+                <HiOutlinePlus size={13} /> Something else
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {fields.length === 0 && (
+              <p className="rounded-xl border border-dashed border-[#E5E5E0] py-6 text-center text-xs text-[#6B6F76]">
+                No questions yet — tap a button above to add one.
+              </p>
+            )}
+
+            {fields.map((f) => (
+              <FieldRow
+                key={f._id}
+                field={f}
+                editing={editingFieldId === f._id}
+                onEdit={() => setEditingFieldId(editingFieldId === f._id ? null : f._id)}
+                onChange={(patch) => updateField(f._id, patch)}
+                onRemove={() => removeField(f._id)}
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="rounded-xl border border-[#E5E5E0] bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[#F5F5F3]"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => goToStep(3)}
+              className="rounded-xl bg-[#2B4EFF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1E3ADE]"
+            >
+              Next: review
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Step 3: Review + settings ---------------- */}
+      {step === 3 && (
+        <div className="flex flex-col gap-4">
+          <div className="rounded-xl border border-[#E5E5E0] p-4">
+            <p className="text-sm font-medium text-[#0B0F19]">{name}</p>
+            {triggerIntent && <p className="mt-0.5 text-xs text-[#6B6F76]">Triggers on: {triggerIntent}</p>}
+            <div className="mt-3 flex flex-col gap-1.5">
+              {fields.map((f) => (
+                <div key={f._id} className="flex items-center justify-between text-xs">
+                  <span className="text-[#0B0F19]">
+                    {f.label} <span className="text-[#B9BAB6]">· {FIELD_TYPE_LABELS[f.type]}</span>
+                  </span>
+                  {f.required && <span className="text-[10px] font-medium text-[#2B4EFF]">Required</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <label className="flex items-start gap-2 rounded-xl border border-[#E5E5E0] px-3.5 py-2.5 text-sm text-[#0B0F19]">
             <input
               type="checkbox"
+              className="mt-0.5"
               checked={requiresPayment}
               onChange={(e) => setRequiresPayment(e.target.checked)}
             />
-            Requires payment before completion
-          </label>
-        </div>
-
-        {requiresPayment && (
-          <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-            <HiOutlineExclamationTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
-              This never blocks form submission. Leads still complete instantly and start as{" "}
-              <strong>pending</strong> — the visitor is then shown your QR and can optionally upload a payment
-              screenshot. You verify it manually from the &quot;Submitted leads&quot; tab; if they never pay, the
-              lead stays pending for you to follow up on.
+              Ask for payment before this is done
+              <span className="mt-0.5 block text-xs font-normal text-[#6B6F76]">
+                Visitors can still submit the form right away — they'll just see your payment QR afterward and you
+                confirm payment yourself from "Submitted leads."
+              </span>
             </span>
-          </div>
-        )}
+          </label>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className={labelClass}>Fields</p>
+          <div className="flex items-center justify-between pt-1">
             <button
               type="button"
-              onClick={addField}
-              className="flex items-center gap-1.5 rounded-xl border border-dashed border-[#E5E5E0] px-3 py-1.5 text-xs font-medium text-[#6B6F76] transition-colors hover:bg-black/[0.02]"
+              onClick={() => setStep(2)}
+              className="rounded-xl border border-[#E5E5E0] bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[#F5F5F3]"
             >
-              <HiOutlinePlus size={13} /> Add field
+              Back
             </button>
-          </div>
-
-          {fields.length === 0 && <p className="text-xs text-[#6B6F76]">No fields yet.</p>}
-
-          {fields.map((f) => (
-            <div key={f._id} className="flex flex-col gap-2 rounded-xl border border-[#E5E5E0] p-3">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_120px]">
-                <input
-                  className={inputClass}
-                  placeholder="key (e.g. budget)"
-                  value={f.key}
-                  onChange={(e) => updateField(f._id, { key: e.target.value.replace(/\s+/g, "_") })}
-                />
-                <input
-                  className={inputClass}
-                  placeholder="label (e.g. Budget)"
-                  value={f.label}
-                  onChange={(e) => updateField(f._id, { label: e.target.value })}
-                />
-                <select
-                  className={inputClass}
-                  value={f.type}
-                  onChange={(e) => updateField(f._id, { type: e.target.value as FieldType })}
-                >
-                  {FIELD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <input
-                className={inputClass}
-                placeholder="What the bot asks (e.g. What's your budget range?)"
-                value={f.prompt}
-                onChange={(e) => updateField(f._id, { prompt: e.target.value })}
-              />
-
-              {f.type === "select" && (
-                <input
-                  className={inputClass}
-                  placeholder="Options, comma separated (e.g. Under 50L, 50L-1Cr, 1Cr+)"
-                  value={(f.options || []).join(", ")}
-                  onChange={(e) =>
-                    updateField(f._id, {
-                      options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
-                    })
-                  }
-                />
-              )}
-
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-xs text-[#6B6F76]">
-                  <input
-                    type="checkbox"
-                    checked={f.required}
-                    onChange={(e) => updateField(f._id, { required: e.target.checked })}
-                  />
-                  Required
-                </label>
-                <button
-                  type="button"
-                  onClick={() => removeField(f._id)}
-                  className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline"
-                >
-                  <HiOutlineTrash size={13} /> Remove
-                </button>
-              </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-xl border border-[#E5E5E0] bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[#F5F5F3]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="rounded-xl bg-[#2B4EFF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1E3ADE] disabled:opacity-50"
+              >
+                {saving ? "Saving…" : initial ? "Save changes" : "Create form"}
+              </button>
             </div>
-          ))}
+          </div>
         </div>
+      )}
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-xl bg-[#2B4EFF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1E3ADE] disabled:opacity-50"
-          >
-            {saving ? "Saving…" : initial ? "Save changes" : "Create form"}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-xl border border-[#E5E5E0] bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[#F5F5F3]"
-          >
-            Cancel
-          </button>
-        </div>
-
-        {message && <InlineMessage type={message.type} text={message.text} />}
-      </div>
+      {message && <InlineMessage type={message.type} text={message.text} />}
     </SectionCard>
+  );
+}
+
+/* ------------------------------------------------------------------------
+ * One question in the step-2 list. Collapsed by default (just the label +
+ * type + required badge, tap to edit); expands into a small inline editor.
+ * No "key" input anywhere -- key is derived from label automatically.
+ * --------------------------------------------------------------------- */
+
+function FieldRow({
+  field,
+  editing,
+  onEdit,
+  onChange,
+  onRemove,
+}: {
+  field: LeadFormField & { _id: string };
+  editing: boolean;
+  onEdit: () => void;
+  onChange: (patch: Partial<LeadFormField>) => void;
+  onRemove: () => void;
+}) {
+  if (!editing) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-[#E5E5E0] px-3.5 py-2.5">
+        <button type="button" onClick={onEdit} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          <span className="truncate text-sm font-medium text-[#0B0F19]">{field.label || "Untitled question"}</span>
+          <span className="shrink-0 text-xs text-[#6B6F76]">{FIELD_TYPE_LABELS[field.type]}</span>
+          {field.required && <span className="shrink-0 text-[10px] font-medium text-[#2B4EFF]">Required</span>}
+        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#6B6F76] hover:bg-black/[0.05] hover:text-[#0B0F19]"
+            aria-label="Edit question"
+          >
+            <HiOutlinePencil size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#6B6F76] hover:bg-rose-50 hover:text-rose-600"
+            aria-label="Remove question"
+          >
+            <HiOutlineTrash size={13} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5 rounded-xl border border-[#2B4EFF]/40 bg-[#2B4EFF]/[0.02] p-3.5">
+      <input
+        className={inputClass}
+        placeholder="What do you want to ask? (e.g. Budget)"
+        value={field.label}
+        onChange={(e) => onChange({ label: e.target.value })}
+        autoFocus
+      />
+
+      <div className="grid grid-cols-2 gap-2">
+        <select
+          className={inputClass}
+          value={field.type}
+          onChange={(e) => onChange({ type: e.target.value as FieldType })}
+        >
+          {FIELD_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {FIELD_TYPE_LABELS[t]}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 rounded-xl border border-[#E5E5E0] bg-white px-3.5 text-sm text-[#0B0F19]">
+          <input type="checkbox" checked={field.required} onChange={(e) => onChange({ required: e.target.checked })} />
+          Required
+        </label>
+      </div>
+
+      {field.type === "select" && (
+        <input
+          className={inputClass}
+          placeholder="Choices, separated by commas (e.g. Under 50L, 50L-1Cr, 1Cr+)"
+          value={(field.options || []).join(", ")}
+          onChange={(e) => onChange({ options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean) })}
+        />
+      )}
+
+      <details className="text-xs">
+        <summary className="cursor-pointer select-none text-[#6B6F76]">Customize how the bot asks this</summary>
+        <input
+          className={`${inputClass} mt-2`}
+          placeholder={`Could you share your ${field.label || "answer"}?`}
+          value={field.prompt}
+          onChange={(e) => onChange({ prompt: e.target.value })}
+        />
+      </details>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="rounded-xl bg-[#2B4EFF] px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1E3ADE]"
+        >
+          Done
+        </button>
+      </div>
+    </div>
   );
 }
 

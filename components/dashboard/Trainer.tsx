@@ -478,6 +478,7 @@ function KnowledgeBaseSection() {
       setError(err instanceof Error ? err.message : "Couldn't confirm that source.");
     }
   };
+  
 
   const handleFactUpdate = async (key: string, value: string) => {
     setError(null);
@@ -920,10 +921,12 @@ function DocumentRow({
   onSaveEdit: (text: string) => Promise<void>;
   onConfirm: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
+const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(document.extracted_text);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const icons: Record<SourceType, typeof HiOutlineDocumentText> = {
     text: HiOutlineDocumentText,
@@ -951,6 +954,15 @@ function DocumentRow({
       await onConfirm();
     } finally {
       setConfirming(false);
+    }
+  };
+  const handleDeleteConfirmed = async () => {
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+      setConfirmingDelete(false);
     }
   };
 
@@ -1001,8 +1013,8 @@ function DocumentRow({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {!document.is_active && !editing && (
+<div className="mt-3 flex flex-wrap items-center gap-2">
+        {!document.is_active && !editing && !confirmingDelete && (
           <>
             <GhostButton onClick={() => setEditing(true)}>
               <HiOutlinePencil size={15} /> Edit
@@ -1028,9 +1040,30 @@ function DocumentRow({
             </PrimaryButton>
           </>
         )}
-        <GhostButton onClick={onDelete} danger>
-          <HiOutlineTrash size={15} /> Delete
-        </GhostButton>
+
+        {!confirmingDelete && !editing && (
+          <GhostButton onClick={() => setConfirmingDelete(true)} danger>
+            <HiOutlineTrash size={15} /> Delete
+          </GhostButton>
+        )}
+
+        {confirmingDelete && (
+          <div className="flex w-full items-center justify-between gap-2 rounded-lg bg-rose-50 px-3 py-2">
+<span className="text-sm text-rose-700">
+              {document.is_active
+                ? "Delete this source? The agent will forget anything learned from it."
+                : "Delete this source? It hasn't been confirmed yet, so nothing will be forgotten."}
+            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <GhostButton onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+                Cancel
+              </GhostButton>
+              <GhostButton onClick={handleDeleteConfirmed} disabled={deleting} danger>
+                {deleting ? "Deleting…" : "Yes, delete"}
+              </GhostButton>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

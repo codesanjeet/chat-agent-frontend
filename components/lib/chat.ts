@@ -1,36 +1,23 @@
 /**
  * chat.ts
+ * Wire types (mirrors app/schemas/chat.py, app/schemas/lead.py, and
+ * app/schemas/settings.py::PublicBusinessOut), session/history persistence,
+ * and the public API calls the chat widget makes.
  *
- * Everything non-visual for the chat widget in one place: wire types
- * (mirroring app/schemas/chat.py, app/services/chat_orchestrator.py's
- * _serialize_gallery_hit, and app/schemas/lead.py field-for-field),
- * session/history persistence (localStorage now, swap the two storage
- * functions for a real GET endpoint later without touching components), and
- * the two public API calls the widget makes.
- *
- * NOTE: tenant is identified by `slug` now, not the tenant's UUID -- the
- * public chat route is /chat/{slug}/message (see app/routers/chat.py).
- * Renamed every `tenantId` param to `slug` here so that's explicit, since
- * TypeScript won't catch a UUID-vs-slug mixup on its own (both are just
- * `string`).
+ * NOTE: tenant is identified by `slug`, not UUID -- routes are
+ * /chat/{slug}/message, /leads/{slug}/submit, /settings/public/{slug}.
  */
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-// Only ever set on an IMAGE gallery item that lives inside a folder --
-// lets the UI offer "see all photos in this folder" without a second call.
 export interface ParentFolderRef {
   id: string;
   title: string;
   external_url: string | null;
 }
 
-// One entry in the ordered list a message can return -- best match first.
-// Mirrors _serialize_gallery_hit exactly. item_type discriminates folder vs
-// image; image_url is always null for a folder, parent_folder is always
-// null for a folder (folders don't have parent-folder "explore more").
 export interface GalleryItemRef {
   item_id: string;
   item_type: "folder" | "image";
@@ -49,7 +36,7 @@ export interface LinkRef {
 export interface LeadFormField {
   key: string;
   label: string;
-  type: string; // "text" | "number" | "tel" | ... -- generic fallback for anything else
+  type: string;
   prompt: string;
   required: boolean;
 }
@@ -76,12 +63,16 @@ export interface LeadOut {
   data: Record<string, unknown>;
   status: string;
   payment_status: string | null;
-  payment_qr_image: string | null; 
+  payment_qr_image: string | null;
   created_at: string;
 }
 
-// Frontend-only: the visible thread. Not sent to the API -- ChatMessageOut
-// above is the wire shape, ThreadMessage is what's rendered + persisted.
+export interface PublicBusinessOut {
+  business_name: string | null;
+  logo: string | null;
+  payment_qr_image: string | null;
+}
+
 export type ThreadMessage =
   | { id: string; role: "user"; text: string; createdAt: string; failed?: boolean }
   | {
@@ -92,14 +83,14 @@ export type ThreadMessage =
       links: LinkRef[];
       leadForm: LeadFormRef | null;
       leadFormState: "pending" | "submitted" | null;
-      leadSubmission: { leadId: string; paymentQrImage: string | null } | null; // ← add this
+      leadSubmission: { leadId: string; paymentQrImage: string | null } | null;
       escalated: boolean;
       createdAt: string;
     }
   | { id: string; role: "error"; text: string; createdAt: string };
+
 // ---------------------------------------------------------------------------
-// Session + history persistence -- tenant-scoped (by slug now), degrades
-// gracefully if localStorage is unavailable (private browsing etc).
+// Session + history persistence
 // ---------------------------------------------------------------------------
 
 const SESSION_KEY_PREFIX = "kiteum_chat_session";
@@ -146,14 +137,12 @@ export function saveHistory(slug: string, sessionId: string, messages: ThreadMes
   try {
     storage.setItem(`${HISTORY_KEY_PREFIX}:${slug}:${sessionId}`, JSON.stringify(messages));
   } catch {
-    // storage full/unavailable -- thread still works for this page life,
-    // it just won't survive a refresh
+    // storage full/unavailable -- thread still works for this page life
   }
 }
 
 // ---------------------------------------------------------------------------
-// API calls -- public, unauthenticated. Deliberately separate from the
-// dashboard's apiRequest helper (no bearer token, no refresh-on-401 here).
+// API calls -- public, unauthenticated.
 // ---------------------------------------------------------------------------
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -198,4 +187,9 @@ export async function submitLead(
     body: JSON.stringify({ session_id: sessionId, lead_form_id: leadFormId, data }),
   });
   return unwrap<LeadOut>(res);
+}
+
+export async function getPublicBusiness(slug: string): Promise<PublicBusinessOut> {
+  const res = await fetch(`${API_BASE_URL}/settings/public/${slug}`);
+  return unwrap<PublicBusinessOut>(res);
 }

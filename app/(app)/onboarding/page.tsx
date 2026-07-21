@@ -122,17 +122,18 @@ export default function ProfilePage() {
     setSlug(slugify(businessName));
   }, [businessName, slugTouched]);
 
-  const handleSlugChange = (raw: string) => {
+const handleSlugChange = (raw: string) => {
     setSlugTouched(true);
-    // Normalize live -- what's shown while typing is exactly what will be
-    // sent and what the backend will store, no surprise reformatting
-    // between this field and the saved value.
-    setSlug(slugify(raw));
+    // No live transformation -- let the person type freely (spaces,
+    // hyphens, anything). We only normalize once, right before submit,
+    // via slugify(). The backend independently slugifies too, so this
+    // is just a client-side preview step, not the source of truth.
+    setSlug(raw);
   };
 
   const nameValid = businessName.trim().length > 0;
   const categoryValid = category.length > 0;
-  const slugValid = slug.trim().length > 0;
+  const slugValid = slugify(slug).length > 0;
   const canSubmit =
     nameValid && categoryValid && slugValid && agreed && loading === null;
 
@@ -190,10 +191,10 @@ export default function ProfilePage() {
         await acceptAgreement("tos", CURRENT_TOS_VERSION);
         await acceptAgreement("privacy", CURRENT_PRIVACY_VERSION);
 
-        const user = await completeProfile({
+const user = await completeProfile({
           business_name: businessName.trim(),
           business_category: category,
-          slug: slug.trim(),
+          slug: slugify(slug),
         });
         router.replace("/dashboard");
       } catch (err: any) {
@@ -382,7 +383,7 @@ export default function ProfilePage() {
                   <span className="shrink-0 text-sm text-[#B9BAB6] font-[family-name:var(--font-mono)]">
                     {CHAT_LINK_BASE}/
                   </span>
-                  <input
+<input
                     type="text"
                     value={slug}
                     onChange={(e) => handleSlugChange(e.target.value)}
@@ -390,6 +391,14 @@ export default function ProfilePage() {
                     className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-[#B9BAB6] font-[family-name:var(--font-mono)] text-[#0B0F19]"
                   />
                 </div>
+                {slug.trim() && slugify(slug) !== slug.trim() && (
+                  <p className="mt-1 text-[11px] text-[#6B6F76]">
+                    Will be saved as:{" "}
+                    <span className="font-[family-name:var(--font-mono)] text-[#0B0F19]">
+                      {slugify(slug) || "—"}
+                    </span>
+                  </p>
+                )}
                 <div className="mt-1.5 flex items-start gap-1.5 text-xs text-[#8A5A00]">
                   <HiOutlineExclamationTriangle size={13} className="mt-0.5 shrink-0" />
                   <span>
